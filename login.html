@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin sign in</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;background:#f2f5f4;display:grid;place-items:center;min-height:100vh;margin:0}
+form{background:#fff;padding:28px;border-radius:10px;width:min(340px,90vw);box-shadow:0 1px 6px #0002}
+input,button{width:100%;padding:10px;margin:6px 0 14px;font:inherit;box-sizing:border-box}
+button{background:#0f6b5c;color:#fff;border:0;border-radius:6px;cursor:pointer}.e{color:#b3261e}</style></head><body>
+<form method="post"><h1 style="margin-top:0">Admin sign in</h1>
+{% if error %}<p class="e" role="alert">{{ error }}</p>{% endif %}
+<label>Username<input name="username" autocomplete="username" required></label>
+<label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+<button>Sign in</button></form></body></html>

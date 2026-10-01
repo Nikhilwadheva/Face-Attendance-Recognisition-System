@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Face Recognition Attendance</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f7f6;
+      color: #123;
+    }
+    .wrap {
+      max-width: 980px;
+      margin: 32px auto;
+      padding: 24px;
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 8px 26px rgba(0,0,0,0.08);
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .actions a {
+      display: inline-block;
+      margin-left: 10px;
+      padding: 10px 14px;
+      background: #0e7c67;
+      color: white;
+      border-radius: 8px;
+      text-decoration: none;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+    }
+    .panel {
+      border: 1px solid #dfe7e5;
+      border-radius: 12px;
+      padding: 16px;
+      background: #fbfdfc;
+    }
+    video, canvas {
+      width: 100%;
+      border-radius: 10px;
+      background: #0d1720;
+      display: block;
+      max-height: 420px;
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 14px 0;
+    }
+    select, button, input {
+      font: inherit;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #ccd7d3;
+    }
+    button {
+      border: none;
+      background: #0e7c67;
+      color: #fff;
+      cursor: pointer;
+      min-width: 120px;
+    }
+    #status {
+      min-height: 24px;
+      margin-top: 10px;
+      font-weight: 600;
+    }
+    .ok { color: #0e7c67; }
+    .err { color: #a22; }
+    @media (max-width: 760px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h1 style="margin:0;">Face Recognition Attendance</h1>
+      <div class="actions">
+        {% if admin %}
+          <a href="/enroll">Enroll</a>
+          <a href="/records">View Records</a>
+        {% else %}
+          <a href="/login">Admin Login</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas" style="display:none"></canvas>
+        <div class="row">
+          <label>Subject
+            <select id="subject">
+              {% if subjects %}
+                {% for subject in subjects %}
+                  <option value="{{ subject }}">{{ subject }}</option>
+                {% endfor %}
+              {% endif %}
+              <option value="General">General</option>
+            </select>
+          </label>
+          <button id="startBtn">Start Camera</button>
+          <button id="scanBtn">Mark Attendance</button>
+        </div>
+        <div id="status"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Instructions</h2>
+        <ul>
+          <li>Allow camera access.</li>
+          <li>Face the camera and blink naturally when prompted.</li>
+          <li>Choose a subject before scanning.</li>
+        </ul>
+        <p><strong>Note:</strong> This version keeps the app running locally and uses the built-in face recognition service already configured in the project.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const subjectSelect = document.getElementById('subject');
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        video.srcObject = stream;
+        statusEl.textContent = 'Camera ready.';
+        statusEl.className = 'ok';
+      } catch (err) {
+        statusEl.textContent = 'Camera access was denied. Please allow webcam access.';
+        statusEl.className = 'err';
+      }
+    }
+
+    function captureFrame() {
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', 0.9);
+    }
+
+    async function markAttendance() {
+      if (!video.srcObject) {
+        statusEl.textContent = 'Start the camera first.';
+        statusEl.className = 'err';
+        return;
+      }
+
+      const frame = captureFrame();
+      const subject = subjectSelect.value || 'General';
+      statusEl.textContent = 'Checking face...';
+      statusEl.className = '';
+
+      try {
+        const response = await fetch('/api/recognize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subject, frames: [frame] })
+        });
+        const data = await response.json();
+
+        if (data.recognized) {
+          statusEl.textContent = data.message || 'Attendance marked successfully.';
+          statusEl.className = 'ok';
+        } else {
+          statusEl.textContent = data.message || 'No match was found.';
+          statusEl.className = 'err';
+        }
+      } catch (error) {
+        statusEl.textContent = 'Request failed. Please try again.';
+        statusEl.className = 'err';
+      }
+    }
+
+    document.getElementById('startBtn').addEventListener('click', startCamera);
+    document.getElementById('scanBtn').addEventListener('click', markAttendance);
+  </script>
+</body>
+</html>

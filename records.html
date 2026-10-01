@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Attendance Records</title>
+  <style>
+    body { margin:0; font-family:Arial,sans-serif; background:#f4f7f6; color:#123; }
+    .wrap { max-width:960px; margin:32px auto; background:#fff; border-radius:14px; padding:24px; box-shadow:0 8px 26px rgba(0,0,0,0.08); }
+    .toolbar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
+    input, select, button { font:inherit; padding:10px 12px; border-radius:8px; border:1px solid #ccd7d3; }
+    button { background:#0e7c67; color:#fff; border:none; cursor:pointer; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    th, td { border:1px solid #dde5e2; padding:10px; text-align:left; }
+    th { background:#edf5f3; }
+    .summary { display:flex; gap:16px; flex-wrap:wrap; margin:12px 0; }
+    .badge { background:#edf5f3; border-radius:999px; padding:8px 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Attendance Records</h1>
+    <div class="toolbar">
+      <input id="date" type="date">
+      <select id="subject">
+        <option value="">All subjects</option>
+      </select>
+      <button id="loadBtn">Load</button>
+      <a href="/" style="color:#0e7c67; text-decoration:none;">Home</a>
+    </div>
+    <div class="summary">
+      <span class="badge">Present: <strong id="presentCount">0</strong></span>
+      <span class="badge">Absent: <strong id="absentCount">0</strong></span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Employee ID</th><th>Name</th><th>Subject</th><th>Date</th><th>Check-in</th></tr>
+      </thead>
+      <tbody id="recordsBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const dateInput = document.getElementById('date');
+    const subjectSelect = document.getElementById('subject');
+    const body = document.getElementById('recordsBody');
+
+    dateInput.value = new Date().toISOString().slice(0, 10);
+
+    async function loadSubjects() {
+      try {
+        const response = await fetch('/api/attendance?date=' + encodeURIComponent(dateInput.value));
+        const data = await response.json();
+        if (!response.ok) return;
+        const options = ['<option value="">All subjects</option>'];
+        for (const subject of data.subjects || []) {
+          options.push(`<option value="${subject}">${subject}</option>`);
+        }
+        subjectSelect.innerHTML = options.join('');
+      } catch (err) {}
+    }
+
+    async function loadRecords() {
+      const selectedDate = dateInput.value || new Date().toISOString().slice(0, 10);
+      const subject = subjectSelect.value || '';
+      try {
+        const response = await fetch('/api/attendance?date=' + encodeURIComponent(selectedDate) + '&subject=' + encodeURIComponent(subject));
+        const data = await response.json();
+        if (!response.ok) {
+          body.innerHTML = '<tr><td colspan="5">' + (data.error || 'Unable to load records') + '</td></tr>';
+          return;
+        }
+        document.getElementById('presentCount').textContent = data.present_count || 0;
+        document.getElementById('absentCount').textContent = data.absent_count || 0;
+        const rows = (data.records || []).map(r => `
+          <tr>
+            <td>${r.employee_code}</td>
+            <td>${r.name}</td>
+            <td>${r.subject}</td>
+            <td>${r.attendance_date}</td>
+            <td>${r.checked_in_at}</td>
+          </tr>
+        `).join('');
+        body.innerHTML = rows || '<tr><td colspan="5">No records found.</td></tr>';
+      } catch (err) {
+        body.innerHTML = '<tr><td colspan="5">Failed to load attendance records.</td></tr>';
+      }
+    }
+
+    document.getElementById('loadBtn').addEventListener('click', loadRecords);
+    dateInput.addEventListener('change', loadSubjects);
+    dateInput.addEventListener('change', loadRecords);
+    loadSubjects();
+    loadRecords();
+  </script>
+</body>
+</html>
